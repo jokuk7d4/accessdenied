@@ -1,0 +1,465 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  INTERVIEWER
+  CANDIDATE
+}
+
+enum RoundInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+enum RoundPermission {
+  READ
+  MANAGE_INVITEES
+  MANAGE_CANDIDATES
+  FULL
+}
+
+enum RoundConductedBy {
+  AI
+  HUMAN
+}
+
+enum CandidateInviteStatus {
+  SENT
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum MeetingParticipantRole {
+  CANDIDATE
+  INTERVIEWER
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MeetingTranscriptSpeaker {
+  CANDIDATE
+  INTERVIEWER
+}
+
+enum MeetingAiSuggestionKind {
+  SUMMARY
+  FOLLOW_UP
+  EVAL
+  QUESTION
+}
+
+enum MeetingAiSuggestionSeverity {
+  GOOD
+  WARN
+  BAD
+  NEUTRAL
+  QUESTION
+}
+
+enum AiInterviewSessionStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum AiInterviewTranscriptSpeaker {
+  AI
+  CANDIDATE
+}
+
+enum ProctoringViolationType {
+  LOOK_LEFT
+  LOOK_RIGHT
+  LOOK_DOWN
+  MULTIPLE_WARNINGS
+}
+
+model User {
+  id          String @id @default(cuid())
+  clerkUserId String @unique
+  role        Role
+
+  // optional app metadata
+  email    String?
+  name     String?
+  imageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // convenience relations (only if you need them)
+  interviewer InterviewerProfile?
+  candidate   CandidateProfile?
+  ownedRounds InterviewRound[]         @relation("RoundOwner")
+  sentInvites RoundInterviewerInvite[] @relation("RoundInviter")
+  receivedInvites RoundInterviewerInvite[] @relation("RoundInvitee")
+  acceptedCandidateInvites CandidateInvite[] @relation("CandidateInviteAcceptedBy")
+  candidateRoundMemberships CandidateRoundMembership[]
+  endedMeetings          MeetingRoom[]        @relation("MeetingEndedBy")
+  completedMeetings      MeetingRoom[]        @relation("MeetingCompletedBy")
+  meetingParticipations  MeetingParticipant[] @relation("MeetingUserParticipants")
+  sentMeetingMessages    MeetingChatMessage[] @relation("MeetingMessageSender")
+  parsedResumes          ParsedResume[]
+  meetingTranscriptTurns MeetingTranscriptTurn[] @relation("MeetingTranscriptSpeakerUser")
+  aiInterviewSessions    AiInterviewSession[]
+
+  @@index([role])
+}
+
+model InterviewerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  company String?
+  title   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CandidateProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  resumeUrl String?
+  headline  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InterviewRound {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  conductedBy RoundConductedBy @default(HUMAN)
+  ownerId     String
+  owner       User     @relation("RoundOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  closedAt    DateTime?
+  deletedAt   DateTime?
+  schedulingLocked Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invites          RoundInterviewerInvite[]
+  candidates       RoundCandidate[]
+  candidateInvites CandidateInvite[]
+  memberships      CandidateRoundMembership[]
+  schedule         RoundSchedule?
+  slots            RoundCandidateSlot[]
+  meetingRooms     MeetingRoom[]
+  parsedResumes    ParsedResume[]
+  aiInterviewSessions AiInterviewSession[]
+
+  @@index([ownerId])
+  @@index([ownerId, deletedAt])
+  @@index([closedAt])
+}
+
+model RoundInterviewerInvite {
+  id          String            @id @default(cuid())
+  roundId     String
+  inviterId   String
+  inviteeId   String
+  status      RoundInviteStatus @default(PENDING)
+  permissions RoundPermission[] @default([READ])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  round   InterviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  inviter User           @relation("RoundInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User           @relation("RoundInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, inviteeId])
+  @@index([inviteeId, status])
+  @@index([roundId])
+}
+
+model RoundCandidate {
+  id        String   @id @default(cuid())
+  roundId   String
+  email     String
+  name      String?
+  createdAt DateTime @default(now())
+
+  round InterviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, email])
+  @@index([roundId])
+}
+
+model CandidateInvite {
+  id               String               @id @default(cuid())
+  roundId          String
+  candidateEmail   String
+  token            String               @unique
+  status           CandidateInviteStatus @default(SENT)
+  sentAt           DateTime             @default(now())
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  round          InterviewRound           @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  acceptedByUser User?                    @relation("CandidateInviteAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  membership     CandidateRoundMembership?
+
+  @@unique([roundId, candidateEmail])
+  @@index([roundId, status])
+  @@index([candidateEmail, status])
+}
+
+model CandidateRoundMembership {
+  id             String   @id @default(cuid())
+  roundId        String
+  userId         String
+  candidateEmail String
+  inviteId       String?
+  acceptedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  round  InterviewRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invite CandidateInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@unique([roundId, userId])
+  @@unique([roundId, candidateEmail])
+  @@unique([inviteId])
+  @@index([userId])
+  @@index([roundId])
+}
+
+model RoundSchedule {
+  id                  String   @id @default(cuid())
+  roundId             String   @unique
+  startAt             DateTime
+  minutesPerCandidate Int
+  workingHoursStart   String?
+  workingHoursEnd     String?
+  breakStart          String?
+  breakEnd            String?
+  skipDates           String[] @default([])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  round InterviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+}
+
+model RoundCandidateSlot {
+  id             String   @id @default(cuid())
+  roundId        String
+  candidateEmail String
+  startAt        DateTime
+  endAt          DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  round       InterviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  meetingRoom MeetingRoom?
+
+  @@unique([roundId, candidateEmail])
+  @@index([roundId, startAt])
+  @@index([candidateEmail])
+}
+
+model MeetingRoom {
+  id               String   @id @default(cuid())
+  roundId          String
+  slotId           String   @unique
+  meetingToken     String   @unique
+  meetingTokenHash String   @unique
+  status           MeetingStatus @default(SCHEDULED)
+  completedAt      DateTime?
+  completedByUserId String?
+  joinCount        Int      @default(0)
+  createdAt        DateTime @default(now())
+  endedAt          DateTime?
+  endedByUserId    String?
+
+  round       InterviewRound       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  slot        RoundCandidateSlot   @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  endedByUser User?                @relation("MeetingEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  completedByUser User?            @relation("MeetingCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  participants MeetingParticipant[]
+  chatMessages MeetingChatMessage[]
+  aiSession    MeetingAiSession?
+  aiInterviewSession AiInterviewSession?
+
+  @@index([roundId])
+  @@index([endedAt])
+  @@index([status])
+  @@index([completedAt])
+}
+
+model MeetingParticipant {
+  id            String                 @id @default(cuid())
+  meetingRoomId String
+  userId        String
+  role          MeetingParticipantRole
+  joinedAt      DateTime               @default(now())
+  leftAt        DateTime?
+
+  meetingRoom MeetingRoom @relation(fields: [meetingRoomId], references: [id], onDelete: Cascade)
+  user        User        @relation("MeetingUserParticipants", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([meetingRoomId, leftAt])
+  @@index([userId, joinedAt])
+}
+
+model MeetingChatMessage {
+  id            String   @id @default(cuid())
+  meetingRoomId String
+  senderUserId  String
+  message       String
+  createdAt     DateTime @default(now())
+
+  meetingRoom MeetingRoom @relation(fields: [meetingRoomId], references: [id], onDelete: Cascade)
+  sender     User         @relation("MeetingMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  @@index([meetingRoomId, createdAt])
+  @@index([senderUserId, createdAt])
+}
+
+model ParsedResume {
+  id              String   @id @default(cuid())
+  candidateUserId String
+  roundId         String
+  schemaVersion   Int      @default(1)
+  data            Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  candidateUser User           @relation(fields: [candidateUserId], references: [id], onDelete: Cascade)
+  round         InterviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateUserId, roundId])
+  @@index([candidateUserId])
+  @@index([roundId])
+}
+
+model MeetingAiSession {
+  id             String   @id @default(cuid())
+  meetingRoomId  String   @unique
+  aiEnabled      Boolean  @default(true)
+  provider       String
+  summary        Json?
+  questionBank   Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  endedAt        DateTime?
+
+  meetingRoom  MeetingRoom            @relation(fields: [meetingRoomId], references: [id], onDelete: Cascade)
+  transcripts  MeetingTranscriptTurn[]
+  suggestions  MeetingAiSuggestion[]
+
+  @@index([aiEnabled])
+}
+
+model MeetingTranscriptTurn {
+  id                 String                  @id @default(cuid())
+  meetingAiSessionId String
+  speaker            MeetingTranscriptSpeaker
+  speakerUserId      String?
+  text               String
+  timestamp          DateTime                @default(now())
+  createdAt          DateTime                @default(now())
+
+  meetingAiSession MeetingAiSession @relation(fields: [meetingAiSessionId], references: [id], onDelete: Cascade)
+  speakerUser      User?            @relation("MeetingTranscriptSpeakerUser", fields: [speakerUserId], references: [id], onDelete: SetNull)
+
+  @@index([meetingAiSessionId, timestamp])
+  @@index([speakerUserId, timestamp])
+}
+
+model MeetingAiSuggestion {
+  id                 String                    @id @default(cuid())
+  meetingAiSessionId String
+  kind               MeetingAiSuggestionKind
+  severity           MeetingAiSuggestionSeverity @default(NEUTRAL)
+  text               String
+  relatedToTurnId    String?
+  createdAt          DateTime                  @default(now())
+
+  meetingAiSession MeetingAiSession @relation(fields: [meetingAiSessionId], references: [id], onDelete: Cascade)
+
+  @@index([meetingAiSessionId, createdAt])
+}
+
+model AiInterviewSession {
+  id                 String                  @id @default(cuid())
+  meetingRoomId      String                  @unique
+  roundId            String
+  candidateUserId    String
+  status             AiInterviewSessionStatus @default(IN_PROGRESS)
+  startedAt          DateTime                @default(now())
+  completedAt        DateTime?
+  questionPlan       Json?
+  aiScore            Int?
+  finalScore         Int?
+  summary            String?
+  strengths          String[]                @default([])
+  weaknesses         String[]                @default([])
+  malpracticePenalty Int                     @default(0)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  meetingRoom     MeetingRoom          @relation(fields: [meetingRoomId], references: [id], onDelete: Cascade)
+  round           InterviewRound       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  candidateUser   User                 @relation(fields: [candidateUserId], references: [id], onDelete: Cascade)
+  transcriptTurns AiInterviewTurn[]
+  proctoringEvents AiProctoringEvent[]
+
+  @@index([roundId, candidateUserId])
+  @@index([status, createdAt])
+}
+
+model AiInterviewTurn {
+  id          String                      @id @default(cuid())
+  sessionId   String
+  speaker     AiInterviewTranscriptSpeaker
+  text        String
+  questionIdx Int?
+  isFollowUp  Boolean                     @default(false)
+  createdAt   DateTime                    @default(now())
+
+  session AiInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model AiProctoringEvent {
+  id          String                 @id @default(cuid())
+  sessionId   String
+  type        ProctoringViolationType
+  durationSec Int
+  hash        String
+  metadata    Json?
+  occurredAt  DateTime               @default(now())
+  createdAt   DateTime               @default(now())
+
+  session AiInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, occurredAt])
+  @@index([type, occurredAt])
+}

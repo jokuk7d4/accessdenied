@@ -1,0 +1,121 @@
+services:
+  web:
+    image: jitsi/web:${JITSI_IMAGE_TAG:-stable}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8000}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    environment:
+      ENABLE_AUTH: ${ENABLE_AUTH:-0}
+      ENABLE_GUESTS: ${ENABLE_GUESTS:-1}
+      ENABLE_LOBBY: ${ENABLE_LOBBY:-0}
+      ENABLE_HSTS: ${ENABLE_HSTS:-0}
+      ENABLE_PREJOIN_PAGE: ${ENABLE_PREJOIN_PAGE:-0}
+      ENABLE_WELCOME_PAGE: ${ENABLE_WELCOME_PAGE:-0}
+      ENABLE_AUTO_OWNER: ${ENABLE_AUTO_OWNER:-1}
+      AUTH_TYPE: ${AUTH_TYPE:-internal}
+      PUBLIC_URL: ${PUBLIC_URL:-https://localhost:8443}
+      XMPP_DOMAIN: ${XMPP_DOMAIN:-meet.jitsi}
+      XMPP_AUTH_DOMAIN: ${XMPP_AUTH_DOMAIN:-auth.meet.jitsi}
+      XMPP_GUEST_DOMAIN: ${XMPP_GUEST_DOMAIN:-guest.meet.jitsi}
+      XMPP_MUC_DOMAIN: ${XMPP_MUC_DOMAIN:-muc.meet.jitsi}
+      XMPP_INTERNAL_MUC_DOMAIN: ${XMPP_INTERNAL_MUC_DOMAIN:-internal-muc.meet.jitsi}
+      XMPP_BOSH_URL_BASE: ${XMPP_BOSH_URL_BASE:-http://prosody:5280}
+      XMPP_SERVER: prosody
+      JICOFO_AUTH_USER: ${JICOFO_AUTH_USER:-focus}
+      JICOFO_AUTH_PASSWORD: ${JICOFO_AUTH_PASSWORD}
+      JVB_AUTH_USER: ${JVB_AUTH_USER:-jvb}
+      JVB_AUTH_PASSWORD: ${JVB_AUTH_PASSWORD}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - web-config:/config
+      - ./keys:/config/keys
+      - web-crontabs:/var/spool/cron/crontabs
+      - transcripts:/usr/share/jitsi-meet/transcripts
+    depends_on:
+      - prosody
+
+  prosody:
+    image: jitsi/prosody:${JITSI_IMAGE_TAG:-stable}
+    restart: unless-stopped
+    expose:
+      - "5222"
+      - "5347"
+      - "5280"
+    environment:
+      AUTH_TYPE: ${AUTH_TYPE:-internal}
+      ENABLE_AUTH: ${ENABLE_AUTH:-0}
+      ENABLE_GUESTS: ${ENABLE_GUESTS:-1}
+      ENABLE_LOBBY: ${ENABLE_LOBBY:-0}
+      XMPP_DOMAIN: ${XMPP_DOMAIN:-meet.jitsi}
+      XMPP_AUTH_DOMAIN: ${XMPP_AUTH_DOMAIN:-auth.meet.jitsi}
+      XMPP_GUEST_DOMAIN: ${XMPP_GUEST_DOMAIN:-guest.meet.jitsi}
+      XMPP_MUC_DOMAIN: ${XMPP_MUC_DOMAIN:-muc.meet.jitsi}
+      XMPP_INTERNAL_MUC_DOMAIN: ${XMPP_INTERNAL_MUC_DOMAIN:-internal-muc.meet.jitsi}
+      JICOFO_COMPONENT_SECRET: ${JICOFO_COMPONENT_SECRET}
+      JICOFO_AUTH_USER: ${JICOFO_AUTH_USER:-focus}
+      JICOFO_AUTH_PASSWORD: ${JICOFO_AUTH_PASSWORD}
+      JVB_AUTH_USER: ${JVB_AUTH_USER:-jvb}
+      JVB_AUTH_PASSWORD: ${JVB_AUTH_PASSWORD}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - prosody-config:/config
+      - prosody-plugins-custom:/prosody-plugins-custom
+
+  jicofo:
+    image: jitsi/jicofo:${JITSI_IMAGE_TAG:-stable}
+    restart: unless-stopped
+    depends_on:
+      - prosody
+    environment:
+      AUTH_TYPE: ${AUTH_TYPE:-internal}
+      ENABLE_AUTH: ${ENABLE_AUTH:-0}
+      ENABLE_AUTO_OWNER: ${ENABLE_AUTO_OWNER:-1}
+      XMPP_DOMAIN: ${XMPP_DOMAIN:-meet.jitsi}
+      XMPP_AUTH_DOMAIN: ${XMPP_AUTH_DOMAIN:-auth.meet.jitsi}
+      XMPP_INTERNAL_MUC_DOMAIN: ${XMPP_INTERNAL_MUC_DOMAIN:-internal-muc.meet.jitsi}
+      XMPP_MUC_DOMAIN: ${XMPP_MUC_DOMAIN:-muc.meet.jitsi}
+      XMPP_SERVER: prosody
+      JICOFO_COMPONENT_SECRET: ${JICOFO_COMPONENT_SECRET}
+      JICOFO_AUTH_USER: ${JICOFO_AUTH_USER:-focus}
+      JICOFO_AUTH_PASSWORD: ${JICOFO_AUTH_PASSWORD}
+      JVB_BREWERY_MUC: ${JVB_BREWERY_MUC:-jvbbrewery}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - jicofo-config:/config
+
+  jvb:
+    image: jitsi/jvb:${JITSI_IMAGE_TAG:-stable}
+    restart: unless-stopped
+    depends_on:
+      - prosody
+    ports:
+      - "${JVB_PORT:-10000}:${JVB_PORT:-10000}/udp"
+      - "127.0.0.1:${JVB_TCP_HARVESTER_PORT:-4443}:4443"
+    environment:
+      XMPP_SERVER: prosody
+      XMPP_DOMAIN: ${XMPP_DOMAIN:-meet.jitsi}
+      XMPP_AUTH_DOMAIN: ${XMPP_AUTH_DOMAIN:-auth.meet.jitsi}
+      XMPP_INTERNAL_MUC_DOMAIN: ${XMPP_INTERNAL_MUC_DOMAIN:-internal-muc.meet.jitsi}
+      XMPP_MUC_DOMAIN: ${XMPP_MUC_DOMAIN:-muc.meet.jitsi}
+      JVB_AUTH_USER: ${JVB_AUTH_USER:-jvb}
+      JVB_AUTH_PASSWORD: ${JVB_AUTH_PASSWORD}
+      JVB_BREWERY_MUC: ${JVB_BREWERY_MUC:-jvbbrewery}
+      JVB_PORT: ${JVB_PORT:-10000}
+      JVB_TCP_HARVESTER_DISABLED: ${JVB_TCP_HARVESTER_DISABLED:-true}
+      JVB_TCP_HARVESTER_PORT: ${JVB_TCP_HARVESTER_PORT:-4443}
+      DOCKER_HOST_ADDRESS: ${DOCKER_HOST_ADDRESS}
+      JVB_ADVERTISE_IPS: ${JVB_ADVERTISE_IPS}
+      PUBLIC_URL: ${PUBLIC_URL:-https://localhost:8443}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - jvb-config:/config
+
+volumes:
+  web-config:
+  web-crontabs:
+  transcripts:
+  prosody-config:
+  prosody-plugins-custom:
+  jicofo-config:
+  jvb-config:
