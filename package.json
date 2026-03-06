@@ -10,6 +10,8 @@
     "test": "vitest run",
     "https": "next dev --experimental-https --hostname 0.0.0.0",
     "http": "next dev --experimental-https --hostname 0.0.0.0",
+    "prod:up": "./scripts/prod-up.sh",
+    "prod:down": "./scripts/prod-down.sh",
     "jitsi:up": "docker compose --env-file docker/jitsi/.env -f docker/jitsi/docker-compose.yml up -d",
     "jitsi:down": "docker compose --env-file docker/jitsi/.env -f docker/jitsi/docker-compose.yml down",
     "jitsi:logs": "docker compose --env-file docker/jitsi/.env -f docker/jitsi/docker-compose.yml logs -f web prosody jicofo jvb"
