@@ -108,7 +108,12 @@ function blockedReasonMessage(reason: JoinBlockedReason) {
 function normalizeJitsiDomain(rawValue?: string) {
   const value = rawValue?.trim();
   if (!value) {
-    return "meet.jit.si";
+    // DO NOT fall back to meet.jit.si — this app uses a self-hosted local Jitsi.
+    // If this throws, set NEXT_PUBLIC_JITSI_DOMAIN=<your-lan-ip>:8443 in your .env
+    throw new Error(
+      "NEXT_PUBLIC_JITSI_DOMAIN is not configured. " +
+      "Set it to your local Jitsi server, e.g. 10.19.220.188:8443",
+    );
   }
 
   return value.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
@@ -167,7 +172,12 @@ function buildScriptCandidates(domain: string, browserHost?: string) {
 function normalizeScriptHost(rawValue?: string) {
   const value = rawValue?.trim();
   if (!value) {
-    return "meet.jit.si";
+    // DO NOT fall back to meet.jit.si — load external_api.js from the local Jitsi.
+    // If this throws, set NEXT_PUBLIC_JITSI_SCRIPT_HOST=<your-lan-ip>:8443 in your .env
+    throw new Error(
+      "NEXT_PUBLIC_JITSI_SCRIPT_HOST is not configured. " +
+      "Set it to your local Jitsi server, e.g. 10.19.220.188:8443",
+    );
   }
 
   return value.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
@@ -766,25 +776,25 @@ export function MeetingClient({
             TOOLBAR_BUTTONS:
               viewerRole === "INTERVIEWER"
                 ? [
-                    "microphone",
-                    "camera",
-                    "desktop",
-                    "chat",
-                    "participants-pane",
-                    "tileview",
-                    "fullscreen",
-                    "hangup",
-                    "settings",
-                  ]
+                  "microphone",
+                  "camera",
+                  "desktop",
+                  "chat",
+                  "participants-pane",
+                  "tileview",
+                  "fullscreen",
+                  "hangup",
+                  "settings",
+                ]
                 : [
-                    "desktop",
-                    "chat",
-                    "participants-pane",
-                    "tileview",
-                    "fullscreen",
-                    "hangup",
-                    "settings",
-                  ],
+                  "desktop",
+                  "chat",
+                  "participants-pane",
+                  "tileview",
+                  "fullscreen",
+                  "hangup",
+                  "settings",
+                ],
           },
         });
 
@@ -877,9 +887,9 @@ export function MeetingClient({
             const participantId = extractParticipantId(payload);
             const role =
               typeof payload === "object" &&
-              payload !== null &&
-              "role" in payload &&
-              typeof (payload as { role?: unknown }).role === "string"
+                payload !== null &&
+                "role" in payload &&
+                typeof (payload as { role?: unknown }).role === "string"
                 ? (payload as { role: string }).role
                 : "";
 

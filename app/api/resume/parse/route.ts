@@ -31,6 +31,14 @@ function isQuotaError(error: unknown) {
   );
 }
 
+function isGoogleApiError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  // Catches 400 bad model name, 403 auth, 404 model not found, 5xx server errors, etc.
+  return error.message.toLowerCase().includes("google ai request failed");
+}
+
 function isStructuredParseError(error: unknown) {
   if (!(error instanceof Error)) {
     return false;
@@ -149,6 +157,7 @@ export async function POST(request: Request) {
 
     let parsedResume: ParsedResume;
     let usedFallback = false;
+    let geminiError: string | undefined;
 
     try {
       const parsePromise = provider.parseResume(extractedText);
@@ -156,8 +165,17 @@ export async function POST(request: Request) {
         ? await withTimeout(parsePromise, LOCAL_PARSE_TIMEOUT_MS, "Local resume parsing")
         : await parsePromise;
     } catch (error) {
+      // Fallback for: quota errors, bad JSON from model, any Google API error
+      // (bad model name, auth failure, network error), or local provider issues.
       const allowFallback =
-        isQuotaError(error) || isStructuredParseError(error) || isLocalProviderEnabled();
+        isQuotaError(error) ||
+        isStructuredParseError(error) ||
+        isGoogleApiError(error) ||
+        isLocalProviderEnabled();
+
+      // Capture the real reason for logging and returning to the client
+      geminiError = error instanceof Error ? error.message : String(error);
+      console.error("[resume/parse] AI provider failed, reason:", geminiError);
 
       if (!allowFallback) {
         throw error;
@@ -172,6 +190,7 @@ export async function POST(request: Request) {
             ok: false,
             code: isLocalProviderEnabled() ? "LOCAL_MODEL_UNAVAILABLE" : undefined,
             error: "Unable to parse resume. Please upload a clearer PDF/DOCX.",
+            aiError: geminiError,
           },
           { status: 500 },
         );
@@ -200,9 +219,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       message: usedFallback
-        ? "Resume parsed with fallback mode"
+        ? "Resume parsed with fallback mode (AI unavailable)"
         : "Resume parsed successfully",
       usedQuotaFallback: usedFallback,
+      aiError: usedFallback ? geminiError : undefined,
     });
   } catch (error) {
     if (isLocalModelReadinessError(error)) {
@@ -217,8 +237,9 @@ export async function POST(request: Request) {
       );
     }
 
+    console.error("[resume/parse] Unhandled error:", error);
     return NextResponse.json(
-      { ok: false, error: "Unable to parse resume. Please try again." },
+      { ok: false, error: "Unable to parse resume. Please try again.", detail: error instanceof Error ? error.message : String(error) },
       { status: 500 },
     );
   }
