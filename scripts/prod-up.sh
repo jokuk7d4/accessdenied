@@ -179,8 +179,15 @@ prepare_jitsi_env() {
 
 main() {
   local lan_ip
-  lan_ip="$(detect_lan_ip)"
-  echo "Detected LAN IP: ${lan_ip}"
+  # Prefer HOST_IP from .env so we use the real Windows LAN IP.
+  # detect_lan_ip() can return WSL's internal eth0 (172.x.x.x) which is wrong.
+  lan_ip="$(read_env_value HOST_IP "${BASE_ENV_FILE}")"
+  if [[ -z "${lan_ip}" ]]; then
+    lan_ip="$(detect_lan_ip)"
+    echo "Auto-detected LAN IP: ${lan_ip}"
+  else
+    echo "Using HOST_IP from .env: ${lan_ip}"
+  fi
 
   prepare_app_env "${lan_ip}"
   prepare_jitsi_env "${lan_ip}"
