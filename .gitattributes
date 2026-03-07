@@ -1,0 +1,24 @@
+# Force LF line endings for all shell scripts (prevents CRLF on Windows checkouts)
+*.sh text eol=lf
+docker/prod/app-entrypoint.sh text eol=lf
+
+# Treat these as text files with automatic line-ending normalization
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.css text eol=lf
+*.env text eol=lf
+Dockerfile* text eol=lf
+
+# Binary files — no line-ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
