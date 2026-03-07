@@ -7,6 +7,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# prisma.config.ts validates DATABASE_URL at load time even for `generate`.
+# Provide a dummy URL so the build-time type generation succeeds.
+# The real DATABASE_URL is injected at runtime via .env.production.auto.
+ARG DATABASE_URL=postgresql://build:build@localhost:5432/build
+ENV DATABASE_URL=${DATABASE_URL}
 RUN npx prisma generate
 RUN npm run build
 
