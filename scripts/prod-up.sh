@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+auto#!/usr/bin/env bash
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -161,6 +161,20 @@ prepare_app_env() {
   echo "Setting Jitsi domain to: ${ip}:8443"
   echo "  - This should be the Windows host IP address (accessible from browsers)"
   echo "  - Your Ubuntu WSL IP (${wsl_ip}) is used for internal Docker networking"
+  
+  # Force write the Jitsi domain to ensure it's properly set
+  echo "NEXT_PUBLIC_JITSI_DOMAIN=\"${ip}:8443\"" >> "${APP_ENV_FILE}"
+  echo "  - Added explicit Jitsi domain configuration"
+  
+  # Remove any duplicate Jitsi domain entries that might exist
+  local tmp_file
+  tmp_file="$(mktemp)"
+  grep -v "^NEXT_PUBLIC_JITSI_DOMAIN=" "${APP_ENV_FILE}" > "${tmp_file}" || true
+  mv "${tmp_file}" "${APP_ENV_FILE}"
+  
+  # Write the Jitsi domain at the end to ensure it's the final value
+  echo "NEXT_PUBLIC_JITSI_DOMAIN=\"${ip}:8443\"" >> "${APP_ENV_FILE}"
+  echo "  - Cleaned up any duplicate entries and set final value"
 }
 
 prepare_jitsi_env() {
