@@ -88,7 +88,9 @@ generate_local_cert() {
     current_ip="$(cat "${CERT_IP_TRACK_FILE}")"
   fi
 
+  # Always regenerate certificate if IP has changed
   if [[ -f "${CERT_FILE}" && -f "${KEY_FILE}" && "${current_ip}" == "${ip}" ]]; then
+    echo "Certificate already exists for ${ip}, skipping generation."
     return
   fi
 
@@ -188,8 +190,18 @@ main() {
     echo "Using HOST_IP from .env: ${lan_ip}"
   fi
 
+  # For WSL, we need to use the Windows host IP for external access
+  # but the WSL IP for internal Docker networking
+  local wsl_ip
+  wsl_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  
+  # Always rebuild containers when IP changes to ensure proper networking
+  echo "Detected IP change. Stopping existing containers..."
+  docker compose --env-file "${APP_ENV_FILE}" -f "${ROOT_DIR}/docker-compose.prod.yml" down 2>/dev/null || true
+  docker compose --env-file "${JITSI_RUNTIME_ENV_FILE}" -f "${ROOT_DIR}/docker/jitsi/docker-compose.yml" down 2>/dev/null || true
+  
   prepare_app_env "${lan_ip}"
-  prepare_jitsi_env "${lan_ip}"
+  prepare_jitsi_env "${wsl_ip}"
   generate_local_cert "${lan_ip}"
 
   echo "Starting app + postgres + https proxy..."
