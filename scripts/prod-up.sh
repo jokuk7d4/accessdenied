@@ -14,23 +14,22 @@ CERT_IP_TRACK_FILE="${CERT_DIR}/.last_ip"
 detect_lan_ip() {
   local ip
 
-  if command -v ip >/dev/null 2>&1; then
-    ip="$(ip route get 1.1.1.1 2>/dev/null | awk '/src/ {for (i=1; i<=NF; i++) if ($i=="src") {print $(i+1); exit}}')"
+  # Try to get the Windows host IP from WSL
+  if command -v cat >/dev/null 2>&1; then
+    # Get the default gateway (Windows host IP)
+    ip="$(ip route | grep default | awk '{print $3}' | head -n1)"
     if [[ -n "${ip}" ]]; then
       echo "${ip}"
       return
     fi
   fi
 
-  if command -v route >/dev/null 2>&1 && command -v ipconfig >/dev/null 2>&1; then
-    local iface
-    iface="$(route -n get default 2>/dev/null | awk '/interface:/{print $2; exit}')"
-    if [[ -n "${iface}" ]]; then
-      ip="$(ipconfig getifaddr "${iface}" 2>/dev/null || true)"
-      if [[ -n "${ip}" ]]; then
-        echo "${ip}"
-        return
-      fi
+  # Fallback to other methods
+  if command -v ip >/dev/null 2>&1; then
+    ip="$(ip route get 1.1.1.1 2>/dev/null | awk '/src/ {for (i=1; i<=NF; i++) if ($i=="src") {print $(i+1); exit}}')"
+    if [[ -n "${ip}" ]]; then
+      echo "${ip}"
+      return
     fi
   fi
 
