@@ -224,7 +224,7 @@ main() {
   docker compose --env-file "${JITSI_RUNTIME_ENV_FILE}" -f "${ROOT_DIR}/docker/jitsi/docker-compose.yml" down 2>/dev/null || true
   
   prepare_app_env "${lan_ip}"
-  prepare_jitsi_env "${wsl_ip}"
+  prepare_jitsi_env "${lan_ip}"
   generate_local_cert "${lan_ip}"
 
   echo "Starting app + postgres + https proxy..."
