@@ -156,6 +156,9 @@ prepare_app_env() {
   upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_DOMAIN" "\"${ip}:8443\""
   upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_SCRIPT_HOST" "\"${ip}:8443\""
   upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_FALLBACK_DOMAIN" ""
+  
+  # Ensure Jitsi domain is properly set for the application
+  echo "Setting Jitsi domain to: ${ip}:8443"
 }
 
 prepare_jitsi_env() {
@@ -216,6 +219,18 @@ main() {
   echo "Jitsi URL: https://${lan_ip}:8443"
   echo "Runtime env: ${APP_ENV_FILE}"
   echo "Jitsi env:   ${JITSI_RUNTIME_ENV_FILE}"
+  
+  # Verify Jitsi domain is set correctly
+  echo ""
+  echo "Verifying Jitsi configuration..."
+  local jitsi_domain
+  jitsi_domain="$(read_env_value NEXT_PUBLIC_JITSI_DOMAIN "${APP_ENV_FILE}")"
+  if [[ -n "${jitsi_domain}" ]]; then
+    echo "✓ Jitsi domain configured: ${jitsi_domain}"
+  else
+    echo "✗ Jitsi domain not found in ${APP_ENV_FILE}"
+    echo "Please check the environment file manually."
+  fi
 }
 
 main "$@"
