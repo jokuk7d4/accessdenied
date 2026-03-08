@@ -159,6 +159,8 @@ prepare_app_env() {
   
   # Ensure Jitsi domain is properly set for the application
   echo "Setting Jitsi domain to: ${ip}:8443"
+  echo "  - This should be the Windows host IP address (accessible from browsers)"
+  echo "  - Your Ubuntu WSL IP (${wsl_ip}) is used for internal Docker networking"
 }
 
 prepare_jitsi_env() {
@@ -197,6 +199,14 @@ main() {
   # but the WSL IP for internal Docker networking
   local wsl_ip
   wsl_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  
+  echo ""
+  echo "=== WSL Docker Networking Configuration ==="
+  echo "Windows Host IP (for browsers): ${lan_ip}"
+  echo "Ubuntu WSL IP (for Docker):     ${wsl_ip}"
+  echo "Jitsi Domain will be set to:    ${lan_ip}:8443"
+  echo "=========================================="
+  echo ""
   
   # Always rebuild containers when IP changes to ensure proper networking
   echo "Detected IP change. Stopping existing containers..."
