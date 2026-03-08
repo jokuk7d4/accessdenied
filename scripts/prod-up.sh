@@ -152,29 +152,25 @@ prepare_app_env() {
   upsert_env "${APP_ENV_FILE}" "POSTGRES_DB" "${db_name}"
   upsert_env "${APP_ENV_FILE}" "POSTGRES_PORT" "${db_port}"
   upsert_env "${APP_ENV_FILE}" "DATABASE_URL" "\"postgresql://${db_user}:${db_password}@postgres:5432/${db_name}\""
-  upsert_env "${APP_ENV_FILE}" "APP_BASE_URL" "\"https://${ip}:3000\""
-  upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_DOMAIN" "\"${ip}:8443\""
-  upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_SCRIPT_HOST" "\"${ip}:8443\""
+  local existing_app_url
+  existing_app_url="$(read_env_value APP_BASE_URL "${BASE_ENV_FILE}")"
+  if [[ -z "${existing_app_url}" ]]; then
+    upsert_env "${APP_ENV_FILE}" "APP_BASE_URL" "\"https://${ip}:3000\""
+  fi
+
+  local existing_jitsi_domain
+  existing_jitsi_domain="$(read_env_value NEXT_PUBLIC_JITSI_DOMAIN "${BASE_ENV_FILE}")"
+  if [[ -z "${existing_jitsi_domain}" ]]; then
+    upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_DOMAIN" "\"${ip}:8443\""
+  fi
+
+  local existing_script_host
+  existing_script_host="$(read_env_value NEXT_PUBLIC_JITSI_SCRIPT_HOST "${BASE_ENV_FILE}")"
+  if [[ -z "${existing_script_host}" ]]; then
+    upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_SCRIPT_HOST" "\"${ip}:8443\""
+  fi
+
   upsert_env "${APP_ENV_FILE}" "NEXT_PUBLIC_JITSI_FALLBACK_DOMAIN" ""
-  
-  # Ensure Jitsi domain is properly set for the application
-  echo "Setting Jitsi domain to: ${ip}:8443"
-  echo "  - This should be the Windows host IP address (accessible from browsers)"
-  echo "  - Your Ubuntu WSL IP (${wsl_ip}) is used for internal Docker networking"
-  
-  # Force write the Jitsi domain to ensure it's properly set
-  echo "NEXT_PUBLIC_JITSI_DOMAIN=\"${ip}:8443\"" >> "${APP_ENV_FILE}"
-  echo "  - Added explicit Jitsi domain configuration"
-  
-  # Remove any duplicate Jitsi domain entries that might exist
-  local tmp_file
-  tmp_file="$(mktemp)"
-  grep -v "^NEXT_PUBLIC_JITSI_DOMAIN=" "${APP_ENV_FILE}" > "${tmp_file}" || true
-  mv "${tmp_file}" "${APP_ENV_FILE}"
-  
-  # Write the Jitsi domain at the end to ensure it's the final value
-  echo "NEXT_PUBLIC_JITSI_DOMAIN=\"${ip}:8443\"" >> "${APP_ENV_FILE}"
-  echo "  - Cleaned up any duplicate entries and set final value"
 }
 
 prepare_jitsi_env() {
