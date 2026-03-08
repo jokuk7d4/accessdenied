@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_ENV_FILE="${ROOT_DIR}/.env.production.auto"
+APP_ENV_FILE="${ROOT_DIR}/.env.production.local"
 JITSI_RUNTIME_ENV_FILE="${ROOT_DIR}/docker/jitsi/.env.runtime"
 
 if [[ -f "${APP_ENV_FILE}" ]]; then

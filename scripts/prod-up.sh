@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_ENV_FILE="${ROOT_DIR}/.env"
-APP_ENV_FILE="${ROOT_DIR}/.env.production.auto"
+APP_ENV_FILE="${ROOT_DIR}/.env.production.local"
 JITSI_BASE_ENV_FILE="${ROOT_DIR}/docker/jitsi/.env"
 JITSI_RUNTIME_ENV_FILE="${ROOT_DIR}/docker/jitsi/.env.runtime"
 CERT_DIR="${ROOT_DIR}/docker/prod/certs"

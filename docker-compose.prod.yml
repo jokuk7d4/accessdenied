@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile.prod
     restart: unless-stopped
     env_file:
-      - .env.production.auto
+      - .env.production.local
     depends_on:
       postgres:
         condition: service_healthy
